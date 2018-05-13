@@ -12,6 +12,7 @@ import { boolean } from './check/arbitrary/BooleanArbitrary';
 import { ascii, base64, char, char16bits, fullUnicode, hexa, unicode } from './check/arbitrary/CharacterArbitrary';
 import { constant, constantFrom } from './check/arbitrary/ConstantArbitrary';
 import Arbitrary from './check/arbitrary/definition/Arbitrary';
+import { _, PlaceholderType } from './check/arbitrary/definition/PlaceholderType';
 import Shrinkable from './check/arbitrary/definition/Shrinkable';
 import { dictionary } from './check/arbitrary/DictionaryArbitrary';
 import { double, float } from './check/arbitrary/FloatingPointArbitrary';

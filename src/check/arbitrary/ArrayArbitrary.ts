@@ -2,13 +2,14 @@ import Random from '../../random/generator/Random';
 import { Stream, stream } from '../../stream/Stream';
 import { Arbitrary } from './definition/Arbitrary';
 import { ArbitraryWithShrink } from './definition/ArbitraryWithShrink';
+import { PlaceholderType } from './definition/PlaceHolderType';
 import Shrinkable from './definition/Shrinkable';
 import { integer } from './IntegerArbitrary';
 
 /** @hidden */
 class ArrayArbitrary<T> extends Arbitrary<T[]> {
   readonly lengthArb: ArbitraryWithShrink<number>;
-  constructor(
+  private constructor(
     readonly arb: Arbitrary<T>,
     readonly minLength: number,
     readonly maxLength: number,
@@ -16,6 +17,24 @@ class ArrayArbitrary<T> extends Arbitrary<T[]> {
   ) {
     super();
     this.lengthArb = integer(minLength, maxLength);
+  }
+  static from<T>(
+    arb: Arbitrary<T>,
+    inputMinLength: number | PlaceholderType,
+    inputMaxLength: number | PlaceholderType,
+    preFilter?: (tab: Shrinkable<T>[]) => Shrinkable<T>[]
+  ) {
+    let minBound = 0;
+    if (typeof inputMinLength === 'number') minBound = inputMinLength;
+    else if (PlaceholderType.Default.is(inputMinLength)) minBound = 0;
+    else throw new Error('minLength: Must either be a number or a valid instance of PlaceholderType');
+
+    let maxBound = 0;
+    if (typeof inputMaxLength === 'number') maxBound = inputMaxLength;
+    else if (PlaceholderType.Default.is(inputMaxLength)) maxBound = minBound < 10 ? minBound + 10 : 2 * minBound;
+    else throw new Error('maxLength: Must either be a number or a valid instance of PlaceholderType');
+
+    return new ArrayArbitrary<T>(arb, minBound, maxBound, preFilter);
   }
   private wrapper(itemsRaw: Shrinkable<T>[], shrunkOnce: boolean): Shrinkable<T[]> {
     const items = this.preFilter(itemsRaw);
@@ -84,14 +103,30 @@ function array<T>(arb: Arbitrary<T>): Arbitrary<T[]>;
 function array<T>(arb: Arbitrary<T>, maxLength: number): Arbitrary<T[]>;
 /**
  * For arrays of values coming from `arb` having lower and upper bound size
+ *
+ * Both `minLength` and `maxLength` can be replaced by valid instances of {@link PlaceholderType}.
+ * When using {@link PlaceholderType} you let the framework choose the bound for you.
+ *
+ * @example
+ * ```fc.array(fc.nat(), 1, fc._) // arrays of size >= 1, framework handles the upper bound```
+ *
  * @param arb Arbitrary used to generate the values inside the array
  * @param minLength Lower bound of the generated array size
  * @param maxLength Upper bound of the generated array size
  */
-function array<T>(arb: Arbitrary<T>, minLength: number, maxLength: number): Arbitrary<T[]>;
-function array<T>(arb: Arbitrary<T>, aLength?: number, bLength?: number): Arbitrary<T[]> {
-  if (bLength == null) return new ArrayArbitrary<T>(arb, 0, aLength == null ? 10 : aLength);
-  return new ArrayArbitrary<T>(arb, aLength || 0, bLength);
+function array<T>(
+  arb: Arbitrary<T>,
+  minLength: number | PlaceholderType,
+  maxLength: number | PlaceholderType
+): Arbitrary<T[]>;
+function array<T>(
+  arb: Arbitrary<T>,
+  aLength?: number | PlaceholderType,
+  bLength?: number | PlaceholderType
+): Arbitrary<T[]> {
+  if (aLength == null) return ArrayArbitrary.from(arb, PlaceholderType.Default, PlaceholderType.Default);
+  if (bLength == null) return ArrayArbitrary.from(arb, PlaceholderType.Default, aLength);
+  return ArrayArbitrary.from(arb, aLength, bLength);
 }
 
 export { array, ArrayArbitrary };

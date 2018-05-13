@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as fc from '../../../../lib/fast-check';
 
 import Arbitrary from '../../../../src/check/arbitrary/definition/Arbitrary';
+import { _ } from '../../../../src/check/arbitrary/definition/PlaceholderType';
 import Shrinkable from '../../../../src/check/arbitrary/definition/Shrinkable';
 import { array } from '../../../../src/check/arbitrary/ArrayArbitrary';
 import { nat } from '../../../../src/check/arbitrary/IntegerArbitrary';
@@ -54,14 +55,40 @@ describe('ArrayArbitrary', () => {
           return true;
         })
       ));
+    it('Should have same outputs for array(arb) and array(arb, _, _)', () =>
+      fc.assert(
+        fc.property(fc.integer(), seed => {
+          assert.deepStrictEqual(
+            array(nat(), _, _).generate(stubRng.mutable.fastincrease(seed)).value,
+            array(nat()).generate(stubRng.mutable.fastincrease(seed)).value
+          );
+        })
+      ));
+    it('Should have same outputs for array(arb, max) and array(arb, _, max)', () =>
+      fc.assert(
+        fc.property(fc.integer(), fc.nat(100), (seed, max) => {
+          assert.deepStrictEqual(
+            array(nat(), _, max).generate(stubRng.mutable.fastincrease(seed)).value,
+            array(nat(), max).generate(stubRng.mutable.fastincrease(seed)).value
+          );
+        })
+      ));
     describe('Given no length constraints', () => {
-      genericHelper.isValidArbitrary(() => array(nat()), {
+      genericHelper.isValidArbitrary(() => array(nat(), _, _), {
         isStrictlySmallerValue: isStrictlySmallerArray,
         isValidValue: (g: number[]) => Array.isArray(g) && g.every(v => typeof v === 'number')
       });
     });
+    describe('Given minimal length only', () => {
+      genericHelper.isValidArbitrary((minLength: number) => array(nat(), minLength, _), {
+        seedGenerator: fc.nat(50),
+        isStrictlySmallerValue: isStrictlySmallerArray,
+        isValidValue: (g: number[], minLength: number) =>
+          Array.isArray(g) && g.length >= minLength && g.every(v => typeof v === 'number')
+      });
+    });
     describe('Given maximal length only', () => {
-      genericHelper.isValidArbitrary((maxLength: number) => array(nat(), maxLength), {
+      genericHelper.isValidArbitrary((maxLength: number) => array(nat(), _, maxLength), {
         seedGenerator: fc.nat(100),
         isStrictlySmallerValue: isStrictlySmallerArray,
         isValidValue: (g: number[], maxLength: number) =>
