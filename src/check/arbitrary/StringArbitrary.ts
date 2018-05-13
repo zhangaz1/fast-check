@@ -2,14 +2,20 @@ import Random from '../../random/generator/Random';
 import { array } from './ArrayArbitrary';
 import { ascii, base64, char, char16bits, fullUnicode, hexa, unicode } from './CharacterArbitrary';
 import Arbitrary from './definition/Arbitrary';
+import { PlaceholderType } from './definition/PlaceHolderType';
 import Shrinkable from './definition/Shrinkable';
 import { nat } from './IntegerArbitrary';
 
 /** @hidden */
-function StringArbitrary(charArb: Arbitrary<string>, aLength?: number, bLength?: number) {
-  const arrayArb =
-    aLength != null ? (bLength != null ? array(charArb, aLength, bLength) : array(charArb, aLength)) : array(charArb);
-  return arrayArb.map(tab => tab.join(''));
+function StringArbitrary(
+  charArb: Arbitrary<string>,
+  aLength?: number | PlaceholderType,
+  bLength?: number | PlaceholderType
+) {
+  const minLength: number | PlaceholderType = bLength != null ? aLength! : PlaceholderType.Default;
+  const maxLength: number | PlaceholderType =
+    bLength != null ? bLength : aLength != null ? aLength : PlaceholderType.Default;
+  return array(charArb, minLength, maxLength).map(tab => tab.join(''));
 }
 
 /** @hidden */
@@ -45,8 +51,16 @@ function stringOf(charArb: Arbitrary<string>, maxLength: number): Arbitrary<stri
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function stringOf(charArb: Arbitrary<string>, minLength: number, maxLength: number): Arbitrary<string>;
-function stringOf(charArb: Arbitrary<string>, aLength?: number, bLength?: number): Arbitrary<string> {
+function stringOf(
+  charArb: Arbitrary<string>,
+  minLength: number | PlaceholderType,
+  maxLength: number | PlaceholderType
+): Arbitrary<string>;
+function stringOf(
+  charArb: Arbitrary<string>,
+  aLength?: number | PlaceholderType,
+  bLength?: number | PlaceholderType
+): Arbitrary<string> {
   return StringArbitrary(charArb, aLength, bLength);
 }
 
@@ -64,8 +78,8 @@ function string(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function string(minLength: number, maxLength: number): Arbitrary<string>;
-function string(aLength?: number, bLength?: number): Arbitrary<string> {
+function string(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function string(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
   return StringArbitrary(char(), aLength, bLength);
 }
 
@@ -83,8 +97,8 @@ function asciiString(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function asciiString(minLength: number, maxLength: number): Arbitrary<string>;
-function asciiString(aLength?: number, bLength?: number): Arbitrary<string> {
+function asciiString(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function asciiString(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
   return StringArbitrary(ascii(), aLength, bLength);
 }
 
@@ -102,8 +116,8 @@ function string16bits(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function string16bits(minLength: number, maxLength: number): Arbitrary<string>;
-function string16bits(aLength?: number, bLength?: number): Arbitrary<string> {
+function string16bits(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function string16bits(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
   return StringArbitrary(char16bits(), aLength, bLength);
 }
 
@@ -121,8 +135,8 @@ function unicodeString(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function unicodeString(minLength: number, maxLength: number): Arbitrary<string>;
-function unicodeString(aLength?: number, bLength?: number): Arbitrary<string> {
+function unicodeString(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function unicodeString(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
   return StringArbitrary(unicode(), aLength, bLength);
 }
 
@@ -140,8 +154,8 @@ function fullUnicodeString(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function fullUnicodeString(minLength: number, maxLength: number): Arbitrary<string>;
-function fullUnicodeString(aLength?: number, bLength?: number): Arbitrary<string> {
+function fullUnicodeString(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function fullUnicodeString(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
   return StringArbitrary(fullUnicode(), aLength, bLength);
 }
 
@@ -159,8 +173,8 @@ function hexaString(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function hexaString(minLength: number, maxLength: number): Arbitrary<string>;
-function hexaString(aLength?: number, bLength?: number): Arbitrary<string> {
+function hexaString(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function hexaString(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
   return StringArbitrary(hexa(), aLength, bLength);
 }
 
@@ -186,10 +200,17 @@ function base64String(maxLength: number): Arbitrary<string>;
  * @param minLength Lower bound of the generated string length
  * @param maxLength Upper bound of the generated string length
  */
-function base64String(minLength: number, maxLength: number): Arbitrary<string>;
-function base64String(aLength?: number, bLength?: number): Arbitrary<string> {
-  const minLength = aLength != null && bLength != null ? aLength : 0;
-  const maxLength = bLength == null ? (aLength == null ? 16 : aLength) : bLength;
+function base64String(minLength: number | PlaceholderType, maxLength: number | PlaceholderType): Arbitrary<string>;
+function base64String(aLength?: number | PlaceholderType, bLength?: number | PlaceholderType): Arbitrary<string> {
+  const minLength: number = aLength != null && bLength != null && typeof aLength === 'number' ? aLength : 0;
+  const maxLength: number =
+    bLength == null
+      ? aLength == null
+        ? 16
+        : (aLength as number)
+      : typeof bLength === 'number'
+        ? bLength
+        : Math.max(2 * minLength, minLength + 16);
   return Base64StringArbitrary(minLength + 3 - (minLength + 3) % 4, maxLength - maxLength % 4); // base64 length is always a multiple of 4
 }
 

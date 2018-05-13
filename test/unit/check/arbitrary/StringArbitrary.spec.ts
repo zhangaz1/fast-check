@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import * as fc from '../../../../lib/fast-check';
 
+import { Arbitrary } from '../../../../src/check/arbitrary/definition/Arbitrary';
+import { _, PlaceholderType } from '../../../../src/check/arbitrary/definition/PlaceholderType';
 import { constantFrom } from '../../../../src/check/arbitrary/ConstantArbitrary';
 import {
   stringOf,
@@ -8,6 +10,7 @@ import {
   asciiString,
   string16bits,
   unicodeString,
+  fullUnicodeString,
   hexaString,
   base64String
 } from '../../../../src/check/arbitrary/StringArbitrary';
@@ -20,180 +23,93 @@ const minMax = fc
   .tuple(fc.integer(0, 10000), fc.integer(0, 10000))
   .map(t => (t[0] < t[1] ? { min: t[0], max: t[1] } : { min: t[1], max: t[0] }));
 
+const isValidStringArbitrary = function(
+  arbitraryBuilder: (minLength?: number | PlaceholderType, maxLength?: number | PlaceholderType) => Arbitrary<string>,
+  isOneOfValues: (v: string) => boolean
+): void {
+  it('Should have same outputs for *String() and *String(_, _)', () =>
+    fc.assert(
+      fc.property(fc.integer(), seed => {
+        assert.strictEqual(
+          arbitraryBuilder(_, _).generate(stubRng.mutable.fastincrease(seed)).value,
+          arbitraryBuilder().generate(stubRng.mutable.fastincrease(seed)).value
+        );
+      })
+    ));
+  it('Should have same outputs for *String(maxLength) and *String(_, maxLength)', () =>
+    fc.assert(
+      fc.property(fc.integer(), fc.nat(100), (seed, maxLength) => {
+        assert.strictEqual(
+          arbitraryBuilder(_, maxLength).generate(stubRng.mutable.fastincrease(seed)).value,
+          arbitraryBuilder(maxLength).generate(stubRng.mutable.fastincrease(seed)).value
+        );
+      })
+    ));
+  describe('Given no length constraints', () => {
+    genericHelper.isValidArbitrary(() => arbitraryBuilder(_, _), {
+      isValidValue: (g: string) => typeof g === 'string' && [...g].every(isOneOfValues)
+    });
+  });
+  describe('Given minimal length only', () => {
+    genericHelper.isValidArbitrary((minLength: number) => arbitraryBuilder(minLength, _), {
+      seedGenerator: fc.nat(50),
+      isValidValue: (g: string, minLength: number) =>
+        typeof g === 'string' && [...g].length >= minLength && [...g].every(isOneOfValues)
+    });
+  });
+  describe('Given maximal length only', () => {
+    genericHelper.isValidArbitrary((maxLength: number) => arbitraryBuilder(_, maxLength), {
+      seedGenerator: fc.nat(100),
+      isValidValue: (g: string, maxLength: number) =>
+        typeof g === 'string' && [...g].length <= maxLength && [...g].every(isOneOfValues)
+    });
+  });
+  describe('Given minimal and maximal lengths', () => {
+    genericHelper.isValidArbitrary(
+      (constraints: { min: number; max: number }) => arbitraryBuilder(constraints.min, constraints.max),
+      {
+        seedGenerator: genericHelper.minMax(fc.nat(100)),
+        isValidValue: (g: string, constraints: { min: number; max: number }) =>
+          typeof g === 'string' &&
+          [...g].length >= constraints.min &&
+          [...g].length <= constraints.max &&
+          [...g].every(isOneOfValues)
+      }
+    );
+  });
+};
 describe('StringArbitrary', () => {
   describe('stringOf', () => {
-    describe('Given no length constraints', () => {
-      genericHelper.isValidArbitrary(() => stringOf(constantFrom('\u{1f431}', 'D', '1').noShrink()), {
-        isStrictlySmallerValue: (g1, g2) => [...g1].length < [...g2].length,
-        isValidValue: (g: string) =>
-          typeof g === 'string' && [...g].every(c => c === '\u{1f431}' || c === 'D' || c === '1')
-      });
-    });
-    describe('Given maximal length only', () => {
-      genericHelper.isValidArbitrary(
-        (maxLength: number) => stringOf(constantFrom('\u{1f431}', 'D', '1').noShrink(), maxLength),
-        {
-          seedGenerator: fc.nat(100),
-          isStrictlySmallerValue: (g1, g2) => [...g1].length < [...g2].length,
-          isValidValue: (g: string, maxLength: number) =>
-            typeof g === 'string' &&
-            [...g].length <= maxLength &&
-            [...g].every(c => c === '\u{1f431}' || c === 'D' || c === '1')
-        }
-      );
-    });
-    describe('Given minimal and maximal lengths', () => {
-      genericHelper.isValidArbitrary(
-        (constraints: { min: number; max: number }) =>
-          stringOf(constantFrom('\u{1f431}', 'D', '1').noShrink(), constraints.min, constraints.max),
-        {
-          seedGenerator: genericHelper.minMax(fc.nat(100)),
-          isStrictlySmallerValue: (g1, g2) => [...g1].length < [...g2].length,
-          isValidValue: (g: string, constraints: { min: number; max: number }) =>
-            typeof g === 'string' &&
-            [...g].length >= constraints.min &&
-            [...g].length <= constraints.max &&
-            [...g].every(c => c === '\u{1f431}' || c === 'D' || c === '1')
-        }
-      );
-    });
+    isValidStringArbitrary(
+      (a, b) =>
+        a == null
+          ? stringOf(constantFrom('\u{1f431}', 'D', '1').noShrink())
+          : b == null
+            ? stringOf(constantFrom('\u{1f431}', 'D', '1').noShrink(), a as number)
+            : stringOf(constantFrom('\u{1f431}', 'D', '1').noShrink(), a, b),
+      (c: string) => c === '\u{1f431}' || c === 'D' || c === '1'
+    );
   });
   describe('string', () => {
-    it('Should generate printable characters', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = string().generate(mrng).value;
-          return g.split('').every(c => 0x20 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0x7e);
-        })
-      ));
-    it('Should generate a string given maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), fc.integer(0, 10000), (seed, maxLength) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = string(maxLength).generate(mrng).value;
-          return g.length <= maxLength;
-        })
-      ));
-    it('Should generate a string given minimal and maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), minMax, (seed, lengths) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = string(lengths.min, lengths.max).generate(mrng).value;
-          return lengths.min <= g.length && g.length <= lengths.max;
-        })
-      ));
+    isValidStringArbitrary(string, (c: string) => 0x20 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0x7e);
   });
   describe('asciiString', () => {
-    it('Should generate ascii string', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = asciiString().generate(mrng).value;
-          return g.split('').every(c => 0x00 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0x7f);
-        })
-      ));
-    it('Should generate a string given maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), fc.integer(0, 10000), (seed, maxLength) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = asciiString(maxLength).generate(mrng).value;
-          return g.length <= maxLength;
-        })
-      ));
-    it('Should generate a string given minimal and maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), minMax, (seed, lengths) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = asciiString(lengths.min, lengths.max).generate(mrng).value;
-          return lengths.min <= g.length && g.length <= lengths.max;
-        })
-      ));
-  });
-  describe('string16bits', () => {
-    it('Should generate string of 16 bits characters', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = string16bits().generate(mrng).value;
-          return g.split('').every(c => 0x0000 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0xffff);
-        })
-      ));
-    it('Should generate a string given maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), fc.integer(0, 10000), (seed, maxLength) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = string16bits(maxLength).generate(mrng).value;
-          return g.length <= maxLength;
-        })
-      ));
-    it('Should generate a string given minimal and maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), minMax, (seed, lengths) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = string16bits(lengths.min, lengths.max).generate(mrng).value;
-          return lengths.min <= g.length && g.length <= lengths.max;
-        })
-      ));
+    isValidStringArbitrary(asciiString, (c: string) => 0x00 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0x7f);
   });
   describe('unicodeString', () => {
-    it('Should generate unicode string (ucs-2 characters only)', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = unicodeString().generate(mrng).value;
-          return g
-            .split('')
-            .every(
-              c =>
-                0x0000 <= c.charCodeAt(0) &&
-                c.charCodeAt(0) <= 0xffff &&
-                !(0xd800 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0xdfff)
-            );
-        })
-      ));
-    it('Should generate a string given maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), fc.integer(0, 10000), (seed, maxLength) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = unicodeString(maxLength).generate(mrng).value;
-          return g.length <= maxLength;
-        })
-      ));
-    it('Should generate a string given minimal and maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), minMax, (seed, lengths) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = unicodeString(lengths.min, lengths.max).generate(mrng).value;
-          return lengths.min <= g.length && g.length <= lengths.max;
-        })
-      ));
+    isValidStringArbitrary(
+      unicodeString,
+      (c: string) =>
+        0x0000 <= c.charCodeAt(0) &&
+        c.charCodeAt(0) <= 0xffff &&
+        !(0xd800 <= c.charCodeAt(0) && c.charCodeAt(0) <= 0xdfff)
+    );
+  });
+  describe('fullUnicodeString', () => {
+    isValidStringArbitrary(fullUnicodeString, (c: string) => true);
   });
   describe('hexaString', () => {
-    it('Should generate hexa string', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = hexaString().generate(mrng).value;
-          return g.split('').every(c => ('0' <= c && c <= '9') || ('a' <= c && c <= 'f'));
-        })
-      ));
-    it('Should generate a string given maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), fc.integer(0, 10000), (seed, maxLength) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = hexaString(maxLength).generate(mrng).value;
-          return g.length <= maxLength;
-        })
-      ));
-    it('Should generate a string given minimal and maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), minMax, (seed, lengths) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = hexaString(lengths.min, lengths.max).generate(mrng).value;
-          return lengths.min <= g.length && g.length <= lengths.max;
-        })
-      ));
+    isValidStringArbitrary(hexaString, (c: string) => ('0' <= c && c <= '9') || ('a' <= c && c <= 'f'));
   });
   describe('base64String', () => {
     function isValidBase64(g: string) {
@@ -212,55 +128,66 @@ describe('StringArbitrary', () => {
         .split('')
         .every(c => c === '=');
     }
-    it('Should generate base64 string', () =>
+    it('Should have same outputs for base64String() and base64String(_, _)', () =>
       fc.assert(
         fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = base64String().generate(mrng).value;
-          return isValidBase64(g);
+          assert.strictEqual(
+            base64String(_, _).generate(stubRng.mutable.fastincrease(seed)).value,
+            base64String().generate(stubRng.mutable.fastincrease(seed)).value
+          );
         })
       ));
-    it('Should pad base64 string with spaces', () =>
+    it('Should have same outputs for base64String(maxLength) and base64String(_, maxLength)', () =>
       fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = base64String().generate(mrng).value;
-          return hasValidBase64Padding(g);
+        fc.property(fc.integer(), fc.nat(100), (seed, maxLength) => {
+          assert.strictEqual(
+            base64String(_, maxLength).generate(stubRng.mutable.fastincrease(seed)).value,
+            base64String(maxLength).generate(stubRng.mutable.fastincrease(seed)).value
+          );
         })
       ));
-    it('Should have a length multiple of 4', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = base64String().generate(mrng).value;
-          return g.length % 4 === 0;
-        })
-      ));
-    it('Should generate a string given maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), fc.integer(0, 10000), (seed, maxLength) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = base64String(maxLength).generate(mrng).value;
-          return g.length <= maxLength;
-        })
-      ));
-    it('Should generate a string given minimal and maximal length', () =>
-      fc.assert(
-        fc.property(fc.integer(), minMax.filter(l => l.max >= l.min + 4), (seed, lengths) => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const g = base64String(lengths.min, lengths.max).generate(mrng).value;
-          return lengths.min <= g.length && g.length <= lengths.max;
-        })
-      ));
-    it('Should shrink and suggest valid base64 strings', () =>
-      fc.assert(
-        fc.property(fc.integer(), seed => {
-          const mrng = stubRng.mutable.fastincrease(seed);
-          const shrinkable = base64String().generate(mrng);
-          return shrinkable
-            .shrink()
-            .every(s => s.value.length % 4 === 0 && isValidBase64(s.value) && hasValidBase64Padding(s.value));
-        })
-      ));
+    describe('Given no length constraints', () => {
+      genericHelper.isValidArbitrary(() => base64String(_, _), {
+        isValidValue: (g: string) =>
+          typeof g === 'string' && g.length % 4 === 0 && isValidBase64(g) && hasValidBase64Padding(g)
+      });
+    });
+    describe('Given minimal length only', () => {
+      genericHelper.isValidArbitrary((minLength: number) => base64String(minLength, _), {
+        seedGenerator: fc.nat(50),
+        isValidValue: (g: string, minLength: number) =>
+          typeof g === 'string' &&
+          [...g].length >= minLength &&
+          g.length % 4 === 0 &&
+          isValidBase64(g) &&
+          hasValidBase64Padding(g)
+      });
+    });
+    describe('Given maximal length only', () => {
+      genericHelper.isValidArbitrary((maxLength: number) => base64String(_, maxLength), {
+        seedGenerator: fc.nat(100),
+        isValidValue: (g: string, maxLength: number) =>
+          typeof g === 'string' &&
+          [...g].length <= maxLength &&
+          g.length % 4 === 0 &&
+          isValidBase64(g) &&
+          hasValidBase64Padding(g)
+      });
+    });
+    describe('Given minimal and maximal lengths', () => {
+      genericHelper.isValidArbitrary(
+        (constraints: { min: number; max: number }) => base64String(constraints.min, constraints.max),
+        {
+          seedGenerator: genericHelper.minMax(fc.nat(100)).filter(l => l.max >= l.min + 4),
+          isValidValue: (g: string, constraints: { min: number; max: number }) =>
+            typeof g === 'string' &&
+            [...g].length >= constraints.min &&
+            [...g].length <= constraints.max &&
+            g.length % 4 === 0 &&
+            isValidBase64(g) &&
+            hasValidBase64Padding(g)
+        }
+      );
+    });
   });
 });
