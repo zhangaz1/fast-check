@@ -101,6 +101,9 @@ export {
   object,
   json,
   unicodeJson,
+  // placeholder
+  _,
+  PlaceholderType,
   // extend the framework
   Arbitrary,
   Shrinkable,
