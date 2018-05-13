@@ -4,6 +4,7 @@ import Random from '../../random/generator/Random';
 import { stream, Stream } from '../../stream/Stream';
 import { Arbitrary } from './definition/Arbitrary';
 import { ArbitraryWithShrink } from './definition/ArbitraryWithShrink';
+import { PlaceholderType } from './definition/PlaceHolderType';
 import Shrinkable from './definition/Shrinkable';
 
 /** @hidden */
@@ -13,10 +14,10 @@ class IntegerArbitrary extends ArbitraryWithShrink<number> {
 
   readonly min: number;
   readonly max: number;
-  constructor(min?: number, max?: number) {
+  constructor(min?: number | PlaceholderType, max?: number | PlaceholderType) {
     super();
-    this.min = min === undefined ? IntegerArbitrary.MIN_INT : min;
-    this.max = max === undefined ? IntegerArbitrary.MAX_INT : max;
+    this.min = min != null && typeof min === 'number' ? min : IntegerArbitrary.MIN_INT;
+    this.max = max != null && typeof max === 'number' ? max : IntegerArbitrary.MAX_INT;
   }
   private wrapper(value: number, shrunkOnce: boolean): Shrinkable<number> {
     return new Shrinkable(value, () => this.shrink(value, shrunkOnce).map(v => this.wrapper(v, true)));
@@ -83,11 +84,18 @@ function integer(): ArbitraryWithShrink<number>;
 function integer(max: number): ArbitraryWithShrink<number>;
 /**
  * For integers between min (included) and max (included)
+ *
+ * Both `min` and `max` can be replaced by valid instances of {@link PlaceholderType}.
+ * When using {@link PlaceholderType} you let the framework choose the bound for you.
+ *
+ * @example
+ * ```fc.integer(1, fc._) // integers >= 1```
+ *
  * @param min Lower bound for the generated integers
  * @param max Upper bound for the generated integers
  */
-function integer(min: number, max: number): ArbitraryWithShrink<number>;
-function integer(a?: number, b?: number): ArbitraryWithShrink<number> {
+function integer(min: number | PlaceholderType, max: number | PlaceholderType): ArbitraryWithShrink<number>;
+function integer(a?: number | PlaceholderType, b?: number | PlaceholderType): ArbitraryWithShrink<number> {
   return b === undefined ? new IntegerArbitrary(undefined, a) : new IntegerArbitrary(a, b);
 }
 

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as fc from '../../../../lib/fast-check';
 
+import { _ } from '../../../../src/check/arbitrary/definition/PlaceholderType';
 import Shrinkable from '../../../../src/check/arbitrary/definition/Shrinkable';
 import { integer, nat } from '../../../../src/check/arbitrary/IntegerArbitrary';
 
@@ -112,6 +113,34 @@ describe('IntegerArbitrary', () => {
         })
       ));
 
+    it('Should have same outputs for integer() and integer(_, _)', () =>
+      fc.assert(
+        fc.property(fc.integer(), seed => {
+          assert.strictEqual(
+            integer(_, _).generate(stubRng.mutable.fastincrease(seed)).value,
+            integer().generate(stubRng.mutable.fastincrease(seed)).value
+          );
+        })
+      ));
+    it('Should have same outputs for integer(max) and integer(_, max)', () =>
+      fc.assert(
+        fc.property(fc.integer(), fc.integer(), (seed, maxBound) => {
+          assert.strictEqual(
+            integer(_, maxBound).generate(stubRng.mutable.fastincrease(seed)).value,
+            integer(maxBound).generate(stubRng.mutable.fastincrease(seed)).value
+          );
+        })
+      ));
+    it('Should have same outputs for nat() and integer(0, _)', () =>
+      fc.assert(
+        fc.property(fc.integer(), seed => {
+          assert.strictEqual(
+            integer(0, _).generate(stubRng.mutable.fastincrease(seed)).value,
+            nat().generate(stubRng.mutable.fastincrease(seed)).value
+          );
+        })
+      ));
+
     const log2 = (v: number) => Math.log(v) / Math.log(2);
 
     it('Should be able to bias strictly positive integers', () =>
@@ -148,13 +177,20 @@ describe('IntegerArbitrary', () => {
         })
       ));
     describe('Given no constraints [between -2**31 and 2**31 -1]', () => {
-      genericHelper.isValidArbitrary(() => integer(), {
+      genericHelper.isValidArbitrary(() => integer(_, _), {
         isStrictlySmallerValue: isStrictlySmallerInteger,
         isValidValue: (g: number) => typeof g === 'number' && -0x80000000 <= g && g <= 0x7fffffff
       });
     });
+    describe('Given minimal value only [between min and 2**31 -1]', () => {
+      genericHelper.isValidArbitrary((minValue: number) => integer(minValue, _), {
+        seedGenerator: fc.integer(),
+        isStrictlySmallerValue: isStrictlySmallerInteger,
+        isValidValue: (g: number, minValue: number) => typeof g === 'number' && minValue <= g && g <= 0x7fffffff
+      });
+    });
     describe('Given maximal value only [between -2**31 and max]', () => {
-      genericHelper.isValidArbitrary((maxValue: number) => integer(maxValue), {
+      genericHelper.isValidArbitrary((maxValue: number) => integer(_, maxValue), {
         seedGenerator: fc.integer(),
         isStrictlySmallerValue: isStrictlySmallerInteger,
         isValidValue: (g: number, maxValue: number) => typeof g === 'number' && -0x80000000 <= g && g <= maxValue
