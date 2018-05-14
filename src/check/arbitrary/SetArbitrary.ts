@@ -1,5 +1,6 @@
 import { ArrayArbitrary } from './ArrayArbitrary';
 import { Arbitrary } from './definition/Arbitrary';
+import { PlaceholderType } from './definition/PlaceholderType';
 import Shrinkable from './definition/Shrinkable';
 
 /** @hidden */
@@ -48,7 +49,11 @@ function set<T>(arb: Arbitrary<T>, maxLength: number): Arbitrary<T[]>;
  * @param minLength Lower bound of the generated array size
  * @param maxLength Upper bound of the generated array size
  */
-function set<T>(arb: Arbitrary<T>, minLength: number, maxLength: number): Arbitrary<T[]>;
+function set<T>(
+  arb: Arbitrary<T>,
+  minLength: number | PlaceholderType,
+  maxLength: number | PlaceholderType
+): Arbitrary<T[]>;
 /**
  * For arrays of unique values coming from `arb` - unicity defined by `compare`
  * @param arb Arbitrary used to generate the values inside the array
@@ -71,19 +76,26 @@ function set<T>(arb: Arbitrary<T>, maxLength: number, compare: (a: T, b: T) => b
  */
 function set<T>(
   arb: Arbitrary<T>,
-  minLength: number,
-  maxLength: number,
+  minLength: number | PlaceholderType,
+  maxLength: number | PlaceholderType,
   compare: (a: T, b: T) => boolean
 ): Arbitrary<T[]>;
 function set<T>(
   arb: Arbitrary<T>,
-  aLength?: number | ((a: T, b: T) => boolean),
-  bLength?: number | ((a: T, b: T) => boolean),
+  aLength?: number | PlaceholderType | ((a: T, b: T) => boolean),
+  bLength?: number | PlaceholderType | ((a: T, b: T) => boolean),
   compareFn?: (a: T, b: T) => boolean
 ): Arbitrary<T[]> {
-  const minLength: number = bLength == null || typeof bLength !== 'number' ? 0 : (aLength as number);
-  const maxLength: number =
-    aLength == null || typeof aLength !== 'number' ? 10 : typeof bLength === 'number' ? bLength : aLength;
+  const isBound = (misc: any) => {
+    return misc != null && (typeof misc === 'number' || PlaceholderType.Default.is(misc));
+  };
+  const minLength: number | PlaceholderType =
+    isBound(aLength) && isBound(bLength) ? (aLength as number | PlaceholderType) : PlaceholderType.Default;
+  const maxLength: number | PlaceholderType = isBound(aLength)
+    ? isBound(bLength)
+      ? (bLength as number | PlaceholderType)
+      : (aLength as number | PlaceholderType)
+    : PlaceholderType.Default;
   const compare =
     compareFn != null
       ? compareFn
