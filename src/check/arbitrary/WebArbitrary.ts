@@ -33,10 +33,14 @@ export interface WebAuthorityConstraints {
  */
 export function webAuthority(constraints?: WebAuthorityConstraints): Arbitrary<string> {
   const c = constraints || {};
-  const hostnameArbs = [domain()]
-    .concat(c.withIPv4 === true ? [ipV4()] : [])
-    .concat(c.withIPv6 === true ? [ipV6().map((ip) => `[${ip}]`)] : [])
-    .concat(c.withIPv4Extended === true ? [ipV4Extended()] : []);
+
+  const hostnameArbs = [
+    domain(),
+    ...(c.withIPv4 === true ? [ipV4()] : []),
+    ...(c.withIPv6 === true ? [ipV6().map((ip) => `[${ip}]`)] : []),
+    ...(c.withIPv4Extended === true ? [ipV4Extended()] : []),
+  ] as const;
+
   return tuple(
     c.withUserInfo === true ? option(hostUserInfo()) : constant(null),
     oneof(...hostnameArbs),

@@ -17,7 +17,7 @@ import { tuple } from './TupleArbitrary';
 export class ObjectConstraints {
   constructor(
     readonly key: Arbitrary<string>,
-    readonly values: Arbitrary<unknown>[],
+    readonly values: readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]],
     readonly maxDepth: number,
     readonly maxKeys: number,
     readonly withSet: boolean,
@@ -29,7 +29,7 @@ export class ObjectConstraints {
   /**
    * Default value of ObjectConstraints.Settings.values field
    */
-  static defaultValues(): Arbitrary<unknown>[] {
+  static defaultValues(): readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]] {
     return [
       boolean(),
       integer(),
@@ -53,7 +53,9 @@ export class ObjectConstraints {
   }
 
   /** @internal */
-  private static boxArbitraries(arbs: Arbitrary<unknown>[]): Arbitrary<unknown>[] {
+  private static boxArbitraries(
+    arbs: readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]]
+  ): readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]] {
     return arbs.map((arb) =>
       arb.map((v) => {
         switch (typeof v) {
@@ -70,12 +72,15 @@ export class ObjectConstraints {
             return v;
         }
       })
-    );
+    ) as [Arbitrary<unknown>, ...Arbitrary<unknown>[]];
   }
 
   /** @internal */
-  private static boxArbitrariesIfNeeded(arbs: Arbitrary<unknown>[], boxEnabled: boolean): Arbitrary<unknown>[] {
-    return boxEnabled ? ObjectConstraints.boxArbitraries(arbs).concat(arbs) : arbs;
+  private static boxArbitrariesIfNeeded(
+    arbs: readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]],
+    boxEnabled: boolean
+  ): readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]] {
+    return boxEnabled ? [...ObjectConstraints.boxArbitraries(arbs), ...arbs] : arbs;
   }
 
   static from(settings?: ObjectConstraints.Settings): ObjectConstraints {
@@ -133,7 +138,7 @@ export namespace ObjectConstraints {
      *  - `Number.POSITIVE_INFINITY`,
      *  - `Number.NEGATIVE_INFINITY`
      */
-    values?: Arbitrary<unknown>[];
+    values?: readonly [Arbitrary<unknown>, ...Arbitrary<unknown>[]];
     /** Also generate boxed versions of values */
     withBoxedValues?: boolean;
     /** Also generate Set */
@@ -168,10 +173,24 @@ const anythingInternal = (constraints: ObjectConstraints): Arbitrary<unknown> =>
   const dictOf = <U>(ka: Arbitrary<string>, va: Arbitrary<U>) => entriesOf(ka, va).map((v) => toObject(v));
 
   const baseArb = oneof(...arbitrariesForBase);
-  const arrayBaseArb = oneof(...arbitrariesForBase.map((arb) => array(arb, 0, maxKeys)));
-  const objectBaseArb = (n: number) => oneof(...arbitrariesForBase.map((arb) => dictOf(arbKeys(n), arb)));
-  const setBaseArb = () => oneof(...arbitrariesForBase.map((arb) => set(arb, 0, maxKeys).map((v) => new Set(v))));
-  const mapBaseArb = (n: number) => oneof(...arbitrariesForBase.map((arb) => mapOf(arbKeys(n), arb)));
+  const arrayBaseArb = oneof(
+    ...(arbitrariesForBase.map((arb) => array(arb, 0, maxKeys)) as [Arbitrary<unknown>, ...Arbitrary<unknown>[]])
+  );
+  const objectBaseArb = (n: number) =>
+    oneof(
+      ...(arbitrariesForBase.map((arb) => dictOf(arbKeys(n), arb)) as [Arbitrary<unknown>, ...Arbitrary<unknown>[]])
+    );
+  const setBaseArb = () =>
+    oneof(
+      ...(arbitrariesForBase.map((arb) => set(arb, 0, maxKeys).map((v) => new Set(v))) as [
+        Arbitrary<unknown>,
+        ...Arbitrary<unknown>[]
+      ])
+    );
+  const mapBaseArb = (n: number) =>
+    oneof(
+      ...(arbitrariesForBase.map((arb) => mapOf(arbKeys(n), arb)) as [Arbitrary<unknown>, ...Arbitrary<unknown>[]])
+    );
 
   // base[] | anything[]
   const arrayArb = memo((n) => oneof(arrayBaseArb, array(anythingArb(n), 0, maxKeys)));
@@ -276,7 +295,7 @@ function object(settings?: ObjectConstraints.Settings): Arbitrary<Record<string,
 /** @internal */
 function jsonSettings(stringArbitrary: Arbitrary<string>, maxDepth?: number) {
   const key = stringArbitrary;
-  const values = [boolean(), integer(), double(), stringArbitrary, constant(null)];
+  const values = [boolean(), integer(), double(), stringArbitrary, constant(null)] as const;
   return maxDepth != null ? { key, values, maxDepth } : { key, values };
 }
 

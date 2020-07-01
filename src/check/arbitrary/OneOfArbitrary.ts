@@ -31,7 +31,9 @@ type OneOfArbitraryType<Ts extends Arbitrary<unknown>[]> = {
  *
  * @param arbs Arbitraries that might be called to produce a value
  */
-function oneof<Ts extends Arbitrary<unknown>[]>(...arbs: Ts): Arbitrary<OneOfArbitraryType<Ts>> {
+function oneof<Ts extends [Arbitrary<unknown>, ...Arbitrary<unknown>[]]>(
+  ...arbs: Ts
+): Arbitrary<OneOfArbitraryType<Ts>> {
   if (arbs.length === 0) {
     throw new Error('fc.oneof expects at least one parameter');
   }
