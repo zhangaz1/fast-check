@@ -41,7 +41,7 @@ const allCommands = [
   fc.integer().map((v) => new PushCommand(v)),
   fc.constant(new PopCommand()),
   fc.constant(new SizeCommand()),
-];
+] as const;
 
 const seed = Date.now();
 describe(`Model Based (seed: ${seed})`, () => {

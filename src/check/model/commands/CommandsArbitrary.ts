@@ -24,7 +24,10 @@ class CommandsArbitrary<Model extends object, Real, RunResult, CheckAsync extend
   private replayPath: boolean[];
   private replayPathPosition: number;
   constructor(
-    commandArbs: Arbitrary<ICommand<Model, Real, RunResult, CheckAsync>>[],
+    commandArbs: readonly [
+      Arbitrary<ICommand<Model, Real, RunResult, CheckAsync>>,
+      ...Arbitrary<ICommand<Model, Real, RunResult, CheckAsync>>[]
+    ],
     maxCommands: number,
     readonly sourceReplayPath: string | null,
     readonly disableReplayLog: boolean
@@ -153,7 +156,10 @@ class CommandsArbitrary<Model extends object, Real, RunResult, CheckAsync extend
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
 function commands<Model extends object, Real, CheckAsync extends boolean>(
-  commandArbs: Arbitrary<AsyncCommand<Model, Real, CheckAsync>>[],
+  commandArbs: readonly [
+    Arbitrary<AsyncCommand<Model, Real, CheckAsync>>,
+    ...Arbitrary<AsyncCommand<Model, Real, CheckAsync>>[]
+  ],
   maxCommands?: number
 ): Arbitrary<Iterable<AsyncCommand<Model, Real, CheckAsync>>>;
 /**
@@ -167,7 +173,7 @@ function commands<Model extends object, Real, CheckAsync extends boolean>(
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
 function commands<Model extends object, Real>(
-  commandArbs: Arbitrary<Command<Model, Real>>[],
+  commandArbs: readonly [Arbitrary<Command<Model, Real>>, ...Arbitrary<Command<Model, Real>>[]],
   maxCommands?: number
 ): Arbitrary<Iterable<Command<Model, Real>>>;
 /**
@@ -181,7 +187,10 @@ function commands<Model extends object, Real>(
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
 function commands<Model extends object, Real, CheckAsync extends boolean>(
-  commandArbs: Arbitrary<AsyncCommand<Model, Real, CheckAsync>>[],
+  commandArbs: readonly [
+    Arbitrary<AsyncCommand<Model, Real, CheckAsync>>,
+    ...Arbitrary<AsyncCommand<Model, Real, CheckAsync>>[]
+  ],
   settings?: CommandsSettings
 ): Arbitrary<Iterable<AsyncCommand<Model, Real, CheckAsync>>>;
 /**
@@ -195,12 +204,15 @@ function commands<Model extends object, Real, CheckAsync extends boolean>(
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
 function commands<Model extends object, Real>(
-  commandArbs: Arbitrary<Command<Model, Real>>[],
+  commandArbs: readonly [Arbitrary<Command<Model, Real>>, ...Arbitrary<Command<Model, Real>>[]],
   settings?: CommandsSettings
 ): Arbitrary<Iterable<Command<Model, Real>>>;
 // eslint-disable-next-line @typescript-eslint/ban-types
 function commands<Model extends object, Real, RunResult, CheckAsync extends boolean>(
-  commandArbs: Arbitrary<ICommand<Model, Real, RunResult, CheckAsync>>[],
+  commandArbs: readonly [
+    Arbitrary<ICommand<Model, Real, RunResult, CheckAsync>>,
+    ...Arbitrary<ICommand<Model, Real, RunResult, CheckAsync>>[]
+  ],
   settings?: number | CommandsSettings
 ): Arbitrary<Iterable<ICommand<Model, Real, RunResult, CheckAsync>>> {
   const config = settings == null ? {} : typeof settings === 'number' ? { maxCommands: settings } : settings;
